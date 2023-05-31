@@ -8,7 +8,7 @@ import java.io.IOException;
 public class CKANUploader {
     public static void main(String[] args) {
 
-        CKAN_API_Handler ckanhandler = new CKAN_API_Handler("http://130.206.127.63","c641640b-eebf-4cbe-a3e3-5050a964f90d","testSpecial","testorg","test_description", false);
+        CKAN_API_Handler ckanhandler = new CKAN_API_Handler("http://130.206.127.63","c641640b-eebf-4cbe-a3e3-5050a964f90d");
         try {
             Package_ p = ckanhandler.getPackageByName("circoscrizioni");
             System.out.println(p);

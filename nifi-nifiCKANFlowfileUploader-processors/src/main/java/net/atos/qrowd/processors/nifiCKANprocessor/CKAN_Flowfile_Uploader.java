@@ -1,12 +1,12 @@
 /**
  * Copyright 2018 Atos
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,12 +36,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-@Tags({"ckan","web service","request","local"})
+@Tags({"ckan", "web service", "request", "local"})
 @CapabilityDescription("Nifi Processor that will upload the specified flowfile to CKAN through its API, it will create the organization and package if needed.")
 @ReadsAttributes
-({@ReadsAttribute(attribute = "filename", description = "The filename to use when writing the FlowFile to disk."),
-@ReadsAttribute(attribute = "ckan_package_name", description= "The name of the CKAN package to store the flowfile into")}
-)
+        ({@ReadsAttribute(attribute = "filename", description = "The filename to use when writing the FlowFile to disk."),
+                @ReadsAttribute(attribute = "ckan_package_name", description = "The name of the CKAN package to store the flowfile into")}
+        )
 public class CKAN_Flowfile_Uploader extends AbstractProcessor {
 
     private static final AllowableValue PRIVATE_TRUE = new AllowableValue("True", "Private", "Marks the package as private");
@@ -93,6 +93,22 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
             .defaultValue(PRIVATE_TRUE.getValue())
             .required(true)
             .build();
+    private static final PropertyDescriptor resource_name = new PropertyDescriptor
+            .Builder().name("resource_name")
+            .displayName("Name to add the resource to")
+            .description("Resource to add the package to. Must contain only alphanumeric characters.")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .required(true)
+            .build();
+    private static final PropertyDescriptor resource_suffix_regex = new PropertyDescriptor
+            .Builder().name("resource_suffix_regex")
+            .displayName("Temporary suffix added to a new resource")
+            .description("Temporary suffix added to a new resource. Must contain only alphanumeric characters.")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .required(true)
+            .defaultValue("yyyy-MM-dd")
+            .build();
+
     private static final PropertyDescriptor tag_list = new PropertyDescriptor
             .Builder().name("tag_list")
             .displayName("Comma-separated Tag List")
@@ -100,6 +116,7 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
             .addValidator(Validator.VALID)
             .required(false)
             .build();
+
 
     private static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("SUCCESS")
@@ -148,27 +165,26 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
-
-        if (flowFile == null) {
+        if (flowFile == null)
             return;
-        }
+
         //This is the way to get the value of a property
         String url = context.getProperty(CKAN_url).getValue();
-
         String tagList = context.getProperty(tag_list).getValue();
-
         String filename = flowFile.getAttribute(CoreAttributes.FILENAME.key());
 
         String tDir = System.getProperty("java.io.tmpdir");
-        String path = tDir + "/"+filename;
+        String path = tDir + "/" + filename;
         Path file = Paths.get(path);
         session.exportTo(flowFile, file, false);
 
         final String apiKey = context.getProperty(api_key).getValue();
+        final String packageName = context.getProperty(package_name).getValue();
         final String packageDescription = context.getProperty(package_description).evaluateAttributeExpressions(flowFile).getValue();
-        final boolean packagePrivate;
-        packagePrivate = context.getProperty(package_private).getValue().equals("True");
+        final boolean packagePrivate = context.getProperty(package_private).getValue().equals("True");
 
+        final String resourceName = context.getProperty(resource_name).getValue();
+        final String resourceSuffixRegex = context.getProperty(resource_suffix_regex).getValue();
 
         String datasetName = flowFile.getAttribute("ckan_package_name");
 
@@ -178,20 +194,17 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
 
         // We can either use the attribute, the property or the filename as package name
         // The order of priority should be property -> attribute -> filename
-        if(datasetName != null && datasetName.length()>0)
-        {
+        if (datasetName != null && datasetName.length() > 0) {
             filenameNoExtension = datasetName;
-            getLogger().info("Dataset name got from attribute: "+filenameNoExtension);
-        }else if(context.getProperty(package_name).isSet())
-        {
-            filenameNoExtension =context.getProperty(package_name).getValue();
-            getLogger().info("Dataset name got from processor property: "+filenameNoExtension);
+            getLogger().info("Dataset name got from attribute: " + filenameNoExtension);
+        } else if (context.getProperty(package_name).isSet()) {
+            filenameNoExtension = context.getProperty(package_name).getValue();
+            getLogger().info("Dataset name got from processor property: " + filenameNoExtension);
         }
         //Check if the property is filled with spaces, empty, or null to use the file name as filename
-        if(filenameNoExtension == null || filenameNoExtension.isEmpty() || filenameNoExtension.trim().length()==0)
-        {
-            filenameNoExtension=getFileName(filename);
-            getLogger().info("Dataset name got from filename: "+filenameNoExtension);
+        if (filenameNoExtension == null || filenameNoExtension.isEmpty() || filenameNoExtension.trim().length() == 0) {
+            filenameNoExtension = getFileName(filename);
+            getLogger().info("Dataset name got from filename: " + filenameNoExtension);
         }
         final String organizationId = context.getProperty(organization_id).getValue();
 
@@ -206,30 +219,27 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
         // -- In case of any exception in the process, send the flowfile to FAILURE.
         // *********************
 
-        CKAN_API_Handler ckan_api_handler = new CKAN_API_Handler(url, apiKey, filenameNoExtension, organizationId, packageDescription, packagePrivate);
+        CKAN_API_Handler ckan_api_handler = new CKAN_API_Handler(url, apiKey);
         try {
-            if (!ckan_api_handler.organizationExists()) {
-                ckan_api_handler.createOrganization();
-            }
-            if (!ckan_api_handler.packageExists(filenameNoExtension)) {
-                ckan_api_handler.createPackage(filenameNoExtension,tagList);
-            }
-            if(ckan_api_handler.createOrUpdateResource(file.toFile().toString())) {
+            if (!ckan_api_handler.organizationExists(organizationId))
+                ckan_api_handler.createOrganization(organizationId);
+
+            if (!ckan_api_handler.packageExists(packageName))
+                ckan_api_handler.createPackage(organizationId, packageName, packageDescription, packagePrivate, tagList);
+
+            if (ckan_api_handler.createOrUpdateResource(packageName, resourceName, resourceSuffixRegex, file.toFile().toString())) {
                 getLogger().info("File tried to be uploaded to CKAN: {}", new Object[]{file.toFile().toString()});
                 session.transfer(flowFile, REL_SUCCESS);
                 ckan_api_handler.close();
-            }else
-            {
+            } else {
                 session.transfer(session.penalize(flowFile), REL_FAILURE);
             }
-        }catch(IOException ioe)
-        {
+        } catch (IOException ioe) {
             getLogger().log(LogLevel.ERROR, "Error while uploading file {} to CKAN {}: Organization {}.",
-                    new Object[]{file, url, organizationId });
+                    new Object[]{file, url, organizationId});
             getLogger().error(ioe.toString());
             session.transfer(session.penalize(flowFile), REL_FAILURE);
-        }catch(Exception e)
-        {
+        } catch (Exception e) {
             getLogger().error("Unexpected error");
             getLogger().error(e.toString());
             session.transfer(session.penalize(flowFile), REL_FAILURE);
@@ -238,9 +248,8 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
     }
 
 
-    private String getFileName(String file){
-
-        getLogger().log(LogLevel.INFO,"Filename to be processed: " + file);
+    private String getFileName(String file) {
+        getLogger().log(LogLevel.INFO, "Filename to be processed: " + file);
         return file.split("\\.")[0];
     }
 }

@@ -1,18 +1,20 @@
 package net.atos.qrowd.handlers;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
 
+@Ignore
 public class CKAN_API_HandlerTest {
 
     private CKAN_API_Handler apiHandler;
 
     @Before
     public void setUp() throws Exception {
-        String host = "https://ckan-cartagena-odala.hopu.eu";
-        String apikey = "36c4c795-d9f0-490d-8046-c255a1019bf6";
+        String host = "https://demo.eu";
+        String apikey = "36c4c795";
         apiHandler = new CKAN_API_Handler(host, apikey);
     }
 
@@ -37,7 +39,7 @@ public class CKAN_API_HandlerTest {
     @Test
     public void createOrUpdateResource() {
         try {
-            apiHandler.createOrUpdateResource("packageid2", "resource", "yyyy-MM-dd'T'HH:mm:ssZ", "/home/hopu/Downloads/cartagena-odala.json");
+            apiHandler.createOrUpdateResource("packageid2", "resource", "yyyy-MM-dd'T'HH:mm:ssZ", "/home/hopu/Downloads/cartagena-odala", "json");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

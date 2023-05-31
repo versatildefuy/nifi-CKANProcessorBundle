@@ -109,6 +109,15 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
             .defaultValue("yyyy-MM-dd")
             .build();
 
+    private static final PropertyDescriptor resource_format = new PropertyDescriptor
+            .Builder().name("resource_suffix_regex")
+            .displayName("Resource format")
+            .description("Resource format set to a new resource. Common values are json or xml.")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .required(true)
+            .defaultValue("json")
+            .build();
+
     private static final PropertyDescriptor tag_list = new PropertyDescriptor
             .Builder().name("tag_list")
             .displayName("Comma-separated Tag List")
@@ -141,6 +150,9 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
         descriptors.add(package_name);
         descriptors.add(package_description);
         descriptors.add(package_private);
+        descriptors.add(resource_name);
+        descriptors.add(resource_suffix_regex);
+        descriptors.add(resource_format);
         descriptors.add(tag_list);
 
         this.descriptors = Collections.unmodifiableList(descriptors);
@@ -185,6 +197,7 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
 
         final String resourceName = context.getProperty(resource_name).getValue();
         final String resourceSuffixRegex = context.getProperty(resource_suffix_regex).getValue();
+        final String resourceFormat = context.getProperty(resource_format).getValue();
 
         String datasetName = flowFile.getAttribute("ckan_package_name");
 
@@ -227,7 +240,7 @@ public class CKAN_Flowfile_Uploader extends AbstractProcessor {
             if (!ckan_api_handler.packageExists(packageName))
                 ckan_api_handler.createPackage(organizationId, packageName, packageDescription, packagePrivate, tagList);
 
-            if (ckan_api_handler.createOrUpdateResource(packageName, resourceName, resourceSuffixRegex, file.toFile().toString())) {
+            if (ckan_api_handler.createOrUpdateResource(packageName, resourceName, resourceSuffixRegex, file.toFile().toString(), resourceFormat)) {
                 getLogger().info("File tried to be uploaded to CKAN: {}", new Object[]{file.toFile().toString()});
                 session.transfer(flowFile, REL_SUCCESS);
                 ckan_api_handler.close();

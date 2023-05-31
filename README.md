@@ -7,7 +7,7 @@ This is a set of custom [Apache Nifi](https://nifi.apache.org/) processor that h
 To deploy this processor in a Apache Nifi instance it first need to be packaged as a .nar file.
 To do so just navigate into the project and run:
 ```
-mvn clean package
+mvn clean package -DskipTests
 ```
 
 Then we can deploy the generated .nar package that can be found in the `nar` folders

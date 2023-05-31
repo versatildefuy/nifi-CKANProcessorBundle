@@ -27,7 +27,7 @@
 
     <groupId>net.atos.qrowd</groupId>
     <artifactId>nifiCKANProcessors</artifactId>
-    <version>1.0.2</version>
+    <version>0.2.0</version>
     <packaging>pom</packaging>
     <dependencyManagement>
         <dependencies>

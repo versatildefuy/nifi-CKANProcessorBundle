@@ -447,7 +447,7 @@ public class CKAN_API_Handler {
         httpclient.close();
     }
 
-    public Boolean createOrUpdateResource(String package_id, String resource_name, String resource_suffix_regex, String path) throws IOException {
+    public Boolean createOrUpdateResource(String package_id, String resource_name, String resource_suffix_regex, String path, String resource_format) throws IOException {
         File file = new File(path);
         String filename = file.getName().replaceAll("[^\\.a-zA-Z0-9]+", "_");
         HttpPost postRequest;
@@ -487,7 +487,7 @@ public class CKAN_API_Handler {
         //if the count is 0, call uploadFile to create the file
         if (resResponse.getResult().getCount() == 0) {
             log.info("No resource found under that name, creating it...");
-            uploadFile(package_id, resource_name, resource_suffix_regex, path);
+            uploadFile(package_id, resource_name, resource_suffix_regex, path, resource_format);
             return true;
             //if the count is 1, get all the needed data to update the resource
         } else if (resResponse.getResult().getCount() == 1) {
@@ -503,7 +503,7 @@ public class CKAN_API_Handler {
                 log.warn("The found resource does not belong to the current package");
                 log.warn("Current package id found:" + foundPackageId + ". Package expected:" + resource_packageId);
                 log.warn("Creating the resource in the current package");
-                uploadFile(package_id, resource_name, resource_suffix_regex, path);
+                uploadFile(package_id, resource_name, resource_suffix_regex, path, resource_format);
                 return true;
             }
         } else {
@@ -530,7 +530,7 @@ public class CKAN_API_Handler {
             if (!isPackageFound) {
                 log.warn("None of the found resources belongs to the current package");
                 log.warn("Creating the resource in the current package");
-                uploadFile(package_id, resource_name, resource_suffix_regex, path);
+                uploadFile(package_id, resource_name, resource_suffix_regex, path, resource_format);
             }
             return true;
         }
@@ -572,11 +572,10 @@ public class CKAN_API_Handler {
     /**
      * Function that uploads a file to CKAN through it's API
      *
-     * @param package_id
      * @param path       Local filesystem path of the file to upload
      * @throws IOException Exception parsing the result message or closing the connection
      */
-    private void uploadFile(String package_id, String resource_name, String resource_suffix_regex, String path) throws IOException {
+    private void uploadFile(String package_id, String resource_name, String resource_suffix_regex, String path, String resource_format) throws IOException {
         File file = new File(path);
         SimpleDateFormat dateFormatGmt = new SimpleDateFormat(resource_suffix_regex);
         String date = dateFormatGmt.format(new Date());
@@ -584,15 +583,11 @@ public class CKAN_API_Handler {
         String line;
 
         HttpPost postRequest;
-        ContentBody cbFile = new FileBody(file, ContentType.TEXT_HTML);
         HttpEntity reqEntity = MultipartEntityBuilder.create()
-//                .addPart("file", cbFile)
-//                .addPart("key", new StringBody(file.getName().split("\\.")[0], ContentType.TEXT_PLAIN))
                 .addTextBody("name", String.format("%s-%s", resource_name, date), ContentType.DEFAULT_TEXT)
-//                .addPart("url", new StringBody("testURL", ContentType.TEXT_PLAIN))
                 .addTextBody("package_id", package_id, ContentType.DEFAULT_TEXT)
+                .addTextBody("format", resource_format, ContentType.DEFAULT_TEXT)
                 .addBinaryBody("upload", file)
-//                .addPart("description", new StringBody(file.getName() + " created on: " + date, ContentType.TEXT_PLAIN))
                 .build();
 
         postRequest = new HttpPost(HOST + "/api/3/action/resource_create");
